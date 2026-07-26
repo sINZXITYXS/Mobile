@@ -22,17 +22,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Connect to WebSocket server
 function connectToServer() {
-  // Only connect if we have a valid server IP (Phone.html on Netlify or Network)
-  // Desktop app (local file://) should NOT connect
+  // Determine if this is local network (desktop or phone on same network)
   const isLocalFile = window.location.protocol === 'file:';
   
-  if (isLocalFile) {
-    console.log('[Server] Running as local Electron app - no network features');
-    return;
+  // Desktop app: connect to local server
+  // Phone PWA on Netlify: connect using stored server IP
+  let host = window.location.hostname;
+  
+  if (window.SYNCIFY_SERVER_IP) {
+    host = window.SYNCIFY_SERVER_IP;
   }
   
-  // For Phone.html hosted on Netlify, use the stored server IP
-  let host = window.SYNCIFY_SERVER_IP || window.location.hostname;
+  // Don't connect if running as pure local file
+  if (isLocalFile) {
+    console.log('[Server] Running as local file - no network features');
+    return;
+  }
   
   const wsUrl = 'ws://' + host + ':3000';
   
@@ -249,11 +254,10 @@ function generateQRCode() {
   const container = document.getElementById('qr-code-container');
   if (!container) return;
   
-  // Point directly to /phone.html for mobile access
-  const webUrl = window.location.origin + '/phone.html';
-  
-  // Add query param with server IP for Netlify-hosted PWA
-  const urlWithIP = webUrl + '?server=' + window.location.hostname;
+  // Point to Netlify-hosted PWA with server IP as query param
+  const pwaUrl = 'https://syncifymobile.netlify.app';
+  const serverIP = window.location.hostname;
+  const urlWithIP = pwaUrl + '?server=' + serverIP;
   
   try {
     const img = document.createElement('img');
@@ -269,16 +273,18 @@ function generateQRCode() {
 }
 
 function copyPairingCode() {
-  const webUrl = window.location.origin + '/phone.html';
+  const pwaUrl = 'https://syncifymobile.netlify.app';
+  const serverIP = window.location.hostname;
+  const urlWithIP = pwaUrl + '?server=' + serverIP;
   
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(webUrl).then(function() {
-      alert('Pairing code copied');
+    navigator.clipboard.writeText(urlWithIP).then(function() {
+      alert('Pairing code copied: ' + urlWithIP);
     }).catch(err => {
       console.error('Failed to copy:', err);
     });
   } else {
-    alert(webUrl);
+    alert(urlWithIP);
   }
 }
 
