@@ -1,0 +1,18 @@
+{
+  "name": "syncify-mobile",
+  "version": "1.0.0",
+  "description": "Syncify Mobile PWA - Send files between devices",
+  "private": true,
+  "homepage": "https://syncify-mobile.netlify.app",
+  "scripts": {
+    "serve": "npx http-server -p 8000",
+    "build": "echo 'No build needed - static files only'"
+  },
+  "keywords": [
+    "file-transfer",
+    "pwa",
+    "mobile"
+  ],
+  "author": "",
+  "license": "MIT"
+}

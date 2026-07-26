@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Syncify" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23000000' width='192' height='192'/><text x='50%' y='50%' font-size='100' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='system-ui'>S</text></svg>" />
+    <title>Syncify</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="Style.css" />
+  </head>
+  <body
+    class="bg-neutral-950 text-neutral-100 min-h-screen flex"
+    style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"
+    id="page-body"
+  >
+    <!-- Install Popup for Browser (before PWA) -->
+    <div id="install-popup" class="hidden fixed inset-0 bg-black z-50 flex items-center justify-center p-4">
+      <div class="bg-neutral-900 rounded-2xl border border-neutral-800 p-8 max-w-sm w-full text-center">
+        <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-neutral-100 to-neutral-400 flex items-center justify-center mx-auto mb-6">
+          <span class="text-2xl font-bold text-neutral-900">S</span>
+        </div>
+        
+        <h1 class="text-2xl font-bold text-neutral-100 mb-2">Syncify</h1>
+        <p class="text-neutral-300 text-sm font-medium mb-2">Add to Home Screen</p>
+        <p class="text-neutral-400 text-xs mb-6">Get the full app experience on your home screen</p>
+        
+        <button onclick="installPWA()" class="w-full px-6 py-3 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-bold rounded-lg transition-colors duration-300 hover:scale-105">
+          Install App
+        </button>
+      </div>
+    </div>
+
+    <!-- Main content (hidden on browser) -->
+    <div id="main-content" class="w-full flex">
+
+    <!-- Sidebar -->
+    <aside
+      class="w-64 border-r border-neutral-800 flex flex-col bg-neutral-900/50 shrink-0 fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-300 ease-out md:static md:translate-x-0 md:transition-none md:z-auto"
+      id="sidebar"
+    >
+      <div class="h-14 flex items-center px-5 border-b border-neutral-800">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-neutral-100 to-neutral-400 flex items-center justify-center">
+            <i data-lucide="radio" style="width:14px;height:14px;" stroke-width="2" class="text-neutral-900"></i>
+          </div>
+          <span class="text-sm font-semibold tracking-tight">Syncify</span>
+        </div>
+      </div>
+
+      <nav class="flex-1 px-3 py-4 space-y-1">
+        <button class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-neutral-800 text-neutral-100 text-sm font-medium transition-all duration-300" id="tab-devices" onclick="switchTab('devices')">
+          <i data-lucide="monitor-smartphone" style="width:18px;height:18px;" stroke-width="1.5"></i>
+          Devices
+        </button>
+        <button class="flex hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors duration-300 text-sm font-medium text-neutral-400 w-full rounded-lg pt-2 pr-3 pb-2 pl-3 gap-x-2.5 gap-y-2.5 items-center" onclick="switchTab('history')" id="tab-history">
+          <i data-lucide="clock" style="width:18px;height:18px;" stroke-width="1.5"></i>
+          History
+        </button>
+        <button class="flex gap-2.5 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors duration-300 text-sm font-medium text-neutral-400 w-full rounded-lg pt-2 pr-3 pb-2 pl-3 gap-x-2.5 gap-y-2.5 items-center" onclick="switchTab('received')" id="tab-received">
+          <i data-lucide="folder" style="width:18px;height:18px;" stroke-width="1.5"></i>
+          Received Files
+        </button>
+        <button class="flex gap-2.5 hover:bg-neutral-800/60 hover:text-neutral-200 transition-colors duration-300 text-sm font-medium text-neutral-400 w-full rounded-lg pt-2 pr-3 pb-2 pl-3 gap-x-2.5 gap-y-2.5 items-center" id="tab-settings" onclick="switchTab('settings')">
+          <i data-lucide="settings" style="width:18px;height:18px;" stroke-width="1.5"></i>
+          Settings
+        </button>
+      </nav>
+
+      <div class="p-3 border-t border-neutral-800"></div>
+    </aside>
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="hidden fixed inset-0 bg-black/50 z-30 md:hidden"></div>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <!-- Top bar -->
+      <header class="h-14 border-b border-neutral-800 flex items-center justify-between px-6 shrink-0">
+        <div class="flex items-center gap-2">
+          <button id="sidebar-toggle" onclick="toggleSidebar()" class="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-neutral-800/60 text-neutral-400 hover:text-neutral-200 transition-colors duration-300" aria-label="Toggle sidebar">
+            <i data-lucide="panel-left" style="width:16px;height:16px;" stroke-width="1.5"></i>
+          </button>
+          <h1 class="text-sm font-semibold tracking-tight" id="page-title">Send to Desktop</h1>
+        </div>
+      </header>
+      </header>
+
+      <!-- Content -->
+      <div class="flex-1 overflow-y-auto p-6 transition-all duration-300 ease-out opacity-100 translate-y-0" id="panel-devices">
+        <!-- Drop zone -->
+        <div class="border-2 border-dashed border-neutral-800 rounded-2xl p-10 flex flex-col items-center justify-center text-center mb-8 hover:border-neutral-700 transition-colors transition-all duration-300">
+          <div class="w-14 h-14 rounded-2xl bg-neutral-900 flex items-center justify-center mb-4 border border-neutral-800">
+            <i data-lucide="upload" style="width:24px;height:24px;" stroke-width="1.5" class="text-neutral-400"></i>
+          </div>
+          <p class="text-sm font-medium mb-1">Drag files, folders, or text here</p>
+          <p class="text-xs text-neutral-500 mb-4">Then select a device below to send instantly</p>
+          <div class="flex items-center gap-2">
+            <button onclick="openFileTransfer()" class="px-3.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-medium transition-colors transition-all duration-300 hover:scale-105">
+              Browse Files
+            </button>
+            <button onclick="openTextTransferDesktop()" class="px-3.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-medium transition-colors transition-all duration-300 hover:scale-105">
+              Paste Text
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent transfers -->
+        <div class="mb-4 flex items-center justify-between">
+          <p class="text-xs font-medium text-neutral-500 uppercase tracking-wide">Recent Activity</p>
+        </div>
+
+        <div class="bg-neutral-900 border border-neutral-800 rounded-xl flex flex-col items-center justify-center text-center py-10 transition-all duration-300 hover:border-neutral-700">
+          <div class="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center mb-3">
+            <i data-lucide="clock" style="width:18px;height:18px;" stroke-width="1.5" class="text-neutral-500"></i>
+          </div>
+          <p class="text-sm font-medium text-neutral-400">No recent activity</p>
+          <p class="text-xs text-neutral-600 mt-1">Your sent and received files will show up here</p>
+        </div>
+      </div>
+      <div id="panel-history" class="hidden flex-1 overflow-y-auto p-6 opacity-0 -translate-y-1 transition-all duration-300 ease-out">
+        <div class="mb-4 flex items-center justify-between">
+          <p class="text-xs font-medium text-neutral-500 uppercase tracking-wide">Transfer History</p>
+          <span class="text-xs text-neutral-600">0 items</span>
+        </div>
+        <div class="flex flex-col items-center justify-center text-center py-10 border border-dashed border-neutral-800 rounded-xl transition-all duration-300 hover:border-neutral-700">
+          <div class="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center mb-3 border border-neutral-800">
+            <i data-lucide="clock" style="width:18px;height:18px;" stroke-width="1.5" class="text-neutral-500"></i>
+          </div>
+          <p class="text-sm font-medium text-neutral-400">No transfer history</p>
+          <p class="text-xs text-neutral-600 mt-1">Your past transfers will appear here</p>
+        </div>
+      </div>
+      <div id="panel-received" class="hidden flex-1 overflow-y-auto p-6 opacity-0 -translate-y-1 transition-all duration-300 ease-out">
+        <div class="mb-4 flex items-center justify-between">
+          <p class="text-xs font-medium text-neutral-500 uppercase tracking-wide">Received Files</p>
+          <span class="text-xs text-neutral-600">0 files</span>
+        </div>
+        <div class="flex flex-col items-center justify-center text-center py-10 border border-dashed border-neutral-800 rounded-xl transition-all duration-300 hover:border-neutral-700">
+          <div class="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center mb-3 border border-neutral-800">
+            <i data-lucide="folder" style="width:18px;height:18px;" stroke-width="1.5" class="text-neutral-500"></i>
+          </div>
+          <p class="text-sm font-medium text-neutral-400">No received files</p>
+          <p class="text-xs text-neutral-600 mt-1">Files you receive will appear here</p>
+        </div>
+      </div>
+      <div id="panel-settings" class="hidden flex-1 overflow-y-auto p-6 opacity-0 -translate-y-1 transition-all duration-300 ease-out">
+        <div class="mb-4">
+          <p class="text-xs font-medium text-neutral-500 uppercase tracking-wide">Preferences</p>
+        </div>
+        <div class="space-y-2 max-w-md">
+          <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 transition-all duration-300 hover:border-neutral-700">
+            <div>
+              <p class="text-sm font-medium">Device Visibility</p>
+              <p class="text-xs text-neutral-500">Allow others to discover this device</p>
+            </div>
+            <button onclick="this.classList.toggle('bg-neutral-700');this.classList.toggle('bg-neutral-300');this.firstElementChild.classList.toggle('translate-x-4')" class="w-9 h-5 rounded-full bg-neutral-300 relative transition-colors duration-300">
+              <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform translate-x-4 duration-300"></span>
+            </button>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 transition-all duration-300 hover:border-neutral-700">
+            <div>
+              <p class="text-sm font-medium">Auto-Accept Files</p>
+              <p class="text-xs text-neutral-500">Automatically accept incoming transfers</p>
+            </div>
+            <button onclick="this.classList.toggle('bg-neutral-700');this.classList.toggle('bg-neutral-300');this.firstElementChild.classList.toggle('translate-x-4')" class="w-9 h-5 rounded-full bg-neutral-700 relative transition-colors duration-300">
+              <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-300"></span>
+            </button>
+          </div>
+          <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 transition-all duration-300 hover:border-neutral-700">
+            <div>
+              <p class="text-sm font-medium">Notifications</p>
+              <p class="text-xs text-neutral-500">Get notified on new transfers</p>
+            </div>
+            <button onclick="this.classList.toggle('bg-neutral-700');this.classList.toggle('bg-neutral-300');this.firstElementChild.classList.toggle('translate-x-4')" class="w-9 h-5 rounded-full bg-neutral-300 relative transition-colors duration-300">
+              <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform translate-x-4 duration-300"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+      <div id="qr-modal-content" class="bg-neutral-900 rounded-2xl border border-neutral-800 p-8 max-w-sm w-full transform transition-transform duration-300 scale-95">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-lg font-semibold">Pair Device</h2>
+          <button onclick="closeQRModal()" class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 transition-colors">
+            <i data-lucide="x" style="width:18px;height:18px;" stroke-width="2"></i>
+          </button>
+        </div>
+
+        <div class="flex flex-col items-center">
+          <div id="qr-code-container" class="bg-white p-4 rounded-lg mb-4 flex items-center justify-center" style="width: 240px; height: 240px;">
+            <div class="text-center">
+              <p class="text-neutral-600 text-sm font-medium mb-2">QR Code</p>
+              <p class="text-neutral-500 text-xs">Loading...</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-neutral-400 text-center mb-6">
+            Scan this QR code with your iPhone camera to access Syncify on the same network
+          </p>
+
+          <div class="w-full space-y-2">
+            <button onclick="copyPairingCode()" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sm font-medium transition-colors">
+              <i data-lucide="copy" style="width:16px;height:16px;" stroke-width="1.5"></i>
+              Copy Pairing Code
+            </button>
+            <button onclick="closeQRModal()" class="w-full px-4 py-2 rounded-lg bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-medium transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Store server IP before loading Script.js
+      // This allows Phone.html to be hosted anywhere (Netlify, etc) and connect to local server
+      
+      // Check for server IP in URL query params
+      const urlParams = new URLSearchParams(window.location.search);
+      const serverFromURL = urlParams.get('server');
+      
+      console.log('[Phone Init] URL params server:', serverFromURL);
+      
+      // Use server from URL, then localStorage fallback, then default
+      if (serverFromURL) {
+        localStorage.setItem('syncify_server_ip', serverFromURL);
+        console.log('[Phone Init] Saved server from URL:', serverFromURL);
+      }
+      
+      window.SYNCIFY_SERVER_IP = localStorage.getItem('syncify_server_ip') || '192.168.1.252';
+      window.SYNCIFY_SERVER_PORT = 3000;
+      window.SYNCIFY_PWA_URL = 'https://syncifymobile.netlify.app';
+      
+      console.log('[Phone Init] Using server:', window.SYNCIFY_SERVER_IP + ':' + window.SYNCIFY_SERVER_PORT);
+      console.log('[Phone Init] PWA URL:', window.SYNCIFY_PWA_URL);
+      console.log('[Phone Init] Will connect to: ws://' + window.SYNCIFY_SERVER_IP + ':' + window.SYNCIFY_SERVER_PORT);
+    </script>
+    <script src="Script.js"></script>
+    <script src="LiveReload.js"></script>
+    <script>
+      // Phone page: Show install popup on browser, show app on PWA
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                    window.navigator.standalone === true;
+      
+      const isMobilePhone = /iPhone|iPad|Android/i.test(navigator.userAgent);
+      const installPopup = document.getElementById('install-popup');
+      const mainContent = document.getElementById('main-content');
+      
+      console.log('[Phone Page] isPWA:', isPWA, 'isMobilePhone:', isMobilePhone);
+      console.log('[Phone Page] Server:', window.SYNCIFY_SERVER_IP);
+      
+      // Show install popup only on browser, not PWA
+      if (!isPWA && isMobilePhone) {
+        console.log('[Phone Page] Browser mode - showing install popup');
+        installPopup.classList.remove('hidden');
+        mainContent.style.display = 'none';
+      } else {
+        console.log('[Phone Page] PWA or non-mobile mode - showing app');
+        installPopup.classList.add('hidden');
+        mainContent.style.display = 'flex';
+      }
+      
+      function installPWA() {
+        if (window.deferredPrompt) {
+          window.deferredPrompt.prompt();
+          window.deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              installPopup.classList.add('hidden');
+              mainContent.style.display = 'flex';
+            }
+            window.deferredPrompt = null;
+          });
+          return;
+        }
+        
+        if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+          alert('Tap Share > Add to Home Screen');
+          return;
+        }
+        
+        alert('Tap the menu and select "Add to Home Screen"');
+      }
+      
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPrompt = e;
+      });
+    </script>
+  </body>
+</html>
