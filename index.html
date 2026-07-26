@@ -226,15 +226,21 @@
       const urlParams = new URLSearchParams(window.location.search);
       const serverFromURL = urlParams.get('server');
       
+      console.log('[Phone Init] URL params server:', serverFromURL);
+      
       // Use server from URL, then localStorage fallback, then default
       if (serverFromURL) {
         localStorage.setItem('syncify_server_ip', serverFromURL);
+        console.log('[Phone Init] Saved server from URL:', serverFromURL);
       }
       
       window.SYNCIFY_SERVER_IP = localStorage.getItem('syncify_server_ip') || '192.168.1.252';
       window.SYNCIFY_SERVER_PORT = 3000;
+      window.SYNCIFY_PWA_URL = 'https://syncifymobile.netlify.app';
       
       console.log('[Phone Init] Using server:', window.SYNCIFY_SERVER_IP + ':' + window.SYNCIFY_SERVER_PORT);
+      console.log('[Phone Init] PWA URL:', window.SYNCIFY_PWA_URL);
+      console.log('[Phone Init] Will connect to: ws://' + window.SYNCIFY_SERVER_IP + ':' + window.SYNCIFY_SERVER_PORT);
     </script>
     <script src="Script.js"></script>
     <script src="LiveReload.js"></script>
