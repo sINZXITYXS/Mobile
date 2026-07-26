@@ -37,6 +37,33 @@ function connectToServer() {
   const wsUrl = 'ws://' + host + ':3000';
   
   console.log('Connecting to ' + wsUrl);
+  
+  // For HTTPS sites connecting to local network, try to get permission first
+  if (window.location.protocol === 'https:' && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+    console.log('[Server] HTTPS PWA connecting to local network - requesting permission');
+    
+    // Try Local Network Access API (Chrome 94+)
+    if (navigator.requestLocalNetworkAccess) {
+      navigator.requestLocalNetworkAccess()
+        .then(() => {
+          console.log('[Server] Local network access granted');
+          createWebSocketConnection(wsUrl);
+        })
+        .catch(err => {
+          console.error('[Server] Local network access denied:', err);
+          console.log('[Server] Attempting connection anyway...');
+          createWebSocketConnection(wsUrl);
+        });
+    } else {
+      console.log('[Server] Local Network Access API not available, attempting connection');
+      createWebSocketConnection(wsUrl);
+    }
+  } else {
+    createWebSocketConnection(wsUrl);
+  }
+}
+
+function createWebSocketConnection(wsUrl) {
   ws = new WebSocket(wsUrl);
   
   ws.onopen = function() {
