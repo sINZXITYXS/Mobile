@@ -2,46 +2,133 @@
 let ws = null;
 let clientId = null;
 let connectedDevices = {};
-let peerConnections = {};
-let dataChannels = {};
 
 const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-const rtcConfig = {
-  iceServers: [
-    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
-  ]
-};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
-  // Only connect to server if this is the Phone.html (not desktop)
-  // Desktop app is now local-only, no network features
   connectToServer();
   if (window.lucide) lucide.createIcons();
 });
 
-// Connect to WebSocket server
+// Connect to WebSocket server via pairing code
 function connectToServer() {
-  // Determine if this is local network (desktop or phone on same network)
   const isLocalFile = window.location.protocol === 'file:';
   
-  // Desktop app: connect to local server
-  // Phone PWA on Netlify: connect using stored server IP
-  let host = window.location.hostname;
-  
-  if (window.SYNCIFY_SERVER_IP) {
-    host = window.SYNCIFY_SERVER_IP;
-  }
-  
-  // Don't connect if running as pure local file
   if (isLocalFile) {
     console.log('[Server] Running as local file - no network features');
     return;
   }
   
+  // Check if we have a pairing code in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const pairingCode = urlParams.get('code');
+  
+  if (pairingCode) {
+    console.log('[Pairing] Received code from URL: ' + pairingCode);
+    hidePairingOverlay();
+    validatePairingCodeWithServer(pairingCode);
+  } else {
+    console.log('[Pairing] No pairing code in URL - waiting for user input');
+  }
+}
+
+function checkPairingCode() {
+  const input = document.getElementById('pairing-code-input');
+  const status = document.getElementById('pairing-status');
+  
+  if (input.value.length === 6) {
+    status.textContent = 'Code ready - press Connect';
+    status.style.color = '#86efac';
+  } else {
+    status.textContent = 'Enter 6-digit code';
+    status.style.color = '#9ca3af';
+  }
+}
+
+function submitPairingCode() {
+  const code = document.getElementById('pairing-code-input').value;
+  if (code.length !== 6) {
+    alert('Please enter a 6-digit code');
+    return;
+  }
+  
+  hidePairingOverlay();
+  validatePairingCodeWithServer(code);
+}
+
+function hidePairingOverlay() {
+  const overlay = document.getElementById('pairing-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+function validatePairingCodeWithServer(code) {
+  // Try to discover server by trying pairing validation on common local IPs
+  const commonIPs = ['192.168.1.252', '192.168.1.1', '10.0.0.1', '127.0.0.1', '192.168.0.1'];
+  
+  attemptCodeValidation(code, commonIPs, 0);
+}
+
+function attemptCodeValidation(code, ips, index) {
+  if (index >= ips.length) {
+    console.log('[Pairing] Could not validate code on any IP');
+    showPairingError();
+    return;
+  }
+  
+  const ip = ips[index];
+  const url = 'http://' + ip + ':3000/api/pairing/validate';
+  
+  console.log('[Pairing] Trying validation on ' + ip);
+  
+  const timeoutId = setTimeout(() => {
+    console.log('[Pairing] Timeout on ' + ip);
+    attemptCodeValidation(code, ips, index + 1);
+  }, 2000);
+  
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: code })
+  })
+  .then(res => {
+    clearTimeout(timeoutId);
+    return res.json();
+  })
+  .then(data => {
+    if (data.valid) {
+      console.log('[Pairing] Code validated! Server IP: ' + data.serverIP);
+      localStorage.setItem('syncify_server_ip', data.serverIP);
+      window.SYNCIFY_SERVER_IP = data.serverIP;
+      createWebSocketConnection('ws://' + data.serverIP + ':3000');
+    } else {
+      attemptCodeValidation(code, ips, index + 1);
+    }
+  })
+  .catch(err => {
+    clearTimeout(timeoutId);
+    console.log('[Pairing] Validation failed on ' + ip);
+    attemptCodeValidation(code, ips, index + 1);
+  });
+}
+
+function attemptConnectionWithStoredIP() {
+  let host = window.SYNCIFY_SERVER_IP || window.location.hostname;
+  
   const wsUrl = 'ws://' + host + ':3000';
   
   console.log('Connecting to ' + wsUrl);
+  createWebSocketConnection(wsUrl);
+}
+
+function showPairingError() {
+  console.error('[Pairing] Failed to connect - invalid or expired code');
+  alert('Failed to connect. Please scan the QR code again or enter the pairing code.');
+}
+
+function createWebSocketConnection(wsUrl) {
   ws = new WebSocket(wsUrl);
   
   ws.onopen = function() {
@@ -51,7 +138,7 @@ function connectToServer() {
     
     ws.send(JSON.stringify({
       type: 'identify',
-      clientType: isMobile ? 'phone' : 'desktop',
+      clientType: 'phone',
       deviceId: deviceId
     }));
   };
@@ -158,136 +245,6 @@ function captureImageFromPhone() {
   if (input) input.click();
 }
 
-// Desktop functions
-function openFileTransfer() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.multiple = true;
-  
-  input.onchange = function(e) {
-    const files = e.target.files;
-    if (files.length === 0) return;
-    
-    const devices = Object.values(connectedDevices);
-    if (devices.length === 0) {
-      alert('No devices connected');
-      return;
-    }
-    
-    const targetDevice = devices[0];
-    
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const message = {
-          type: 'file',
-          targetId: targetDevice.id,
-          data: event.target.result,
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-          timestamp: new Date().toISOString()
-        };
-        
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(message));
-          console.log('File sent: ' + file.name);
-        }
-      };
-      
-      reader.readAsDataURL(file);
-    });
-  };
-  
-  input.click();
-}
-
-function openTextTransferDesktop() {
-  const devices = Object.values(connectedDevices);
-  if (devices.length === 0) {
-    alert('No devices connected');
-    return;
-  }
-  
-  const text = prompt('Enter text to send:');
-  if (!text || !text.trim()) return;
-  
-  const targetDevice = devices[0];
-  const message = {
-    type: 'text',
-    targetId: targetDevice.id,
-    content: text,
-    timestamp: new Date().toISOString()
-  };
-  
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(message));
-    console.log('Text sent');
-  }
-}
-
-// QR Code functions
-function openQRModal() {
-  const modal = document.getElementById('qr-modal');
-  if (modal) {
-    modal.classList.remove('hidden');
-    setTimeout(function() {
-      modal.classList.remove('opacity-0');
-      modal.classList.add('opacity-100');
-    }, 10);
-    generateQRCode();
-  }
-}
-
-function closeQRModal() {
-  const modal = document.getElementById('qr-modal');
-  if (modal) {
-    modal.classList.add('opacity-0');
-    modal.classList.remove('opacity-100');
-    setTimeout(function() {
-      modal.classList.add('hidden');
-    }, 300);
-  }
-}
-
-function generateQRCode() {
-  const container = document.getElementById('qr-code-container');
-  if (!container) return;
-  
-  // Point to Netlify-hosted PWA with server IP as query param
-  const pwaUrl = 'https://syncifymobile.netlify.app';
-  const serverIP = window.location.hostname;
-  const urlWithIP = pwaUrl + '?server=' + serverIP;
-  
-  try {
-    const img = document.createElement('img');
-    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(urlWithIP);
-    img.style.width = '100%';
-    img.style.height = '100%';
-    container.innerHTML = '';
-    container.appendChild(img);
-  } catch (err) {
-    console.error('Error:', err);
-    if (container) container.innerHTML = '<p style="color: red;">Failed to generate QR code</p>';
-  }
-}
-
-function copyPairingCode() {
-  const pwaUrl = 'https://syncifymobile.netlify.app';
-  const serverIP = window.location.hostname;
-  const urlWithIP = pwaUrl + '?server=' + serverIP;
-  
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(urlWithIP).then(function() {
-      alert('Pairing code copied: ' + urlWithIP);
-    }).catch(err => {
-      console.error('Failed to copy:', err);
-    });
-  } else {
-    alert(urlWithIP);
-  }
-}
-
 // UI functions
 function switchTab(tab) {
   const tabs = ['devices', 'history', 'received', 'settings'];
@@ -318,20 +275,12 @@ function toggleSidebar() {
   if (overlay) overlay.classList.toggle('hidden');
 }
 
-// Update device list on desktop
+// Update device list
 function updateDeviceList() {
   const container = document.getElementById('devices-container');
-  console.log('updateDeviceList called - container:', container);
-  
-  if (!container) {
-    console.error('devices-container not found');
-    return;
-  }
+  if (!container) return;
   
   const devices = Object.values(connectedDevices);
-  console.log('Devices to display:', devices);
-  
-  // Update device count
   const countEl = document.getElementById('device-count');
   if (countEl) {
     countEl.textContent = devices.length + ' device' + (devices.length !== 1 ? 's' : '') + ' found';
@@ -339,15 +288,13 @@ function updateDeviceList() {
   
   if (devices.length === 0) {
     container.innerHTML = `
-      <div class="flex flex-col items-center justify-center text-center py-10 border border-dashed border-neutral-800 rounded-xl mb-8 transition-all duration-300 hover:border-neutral-700">
+      <div class="flex flex-col items-center justify-center text-center py-10 border border-dashed border-neutral-800 rounded-xl">
         <div class="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center mb-3 border border-neutral-800">
           <i data-lucide="monitor-smartphone" style="width:18px;height:18px;" stroke-width="1.5" class="text-neutral-500"></i>
         </div>
-        <p class="text-sm font-medium text-neutral-400">No devices found nearby</p>
-        <p class="text-xs text-neutral-600 mt-1">Devices on your network will appear here</p>
+        <p class="text-sm font-medium text-neutral-400">No devices found</p>
       </div>
     `;
-    if (window.lucide) lucide.createIcons();
     return;
   }
   
@@ -364,33 +311,16 @@ function updateDeviceList() {
   };
   
   container.innerHTML = devices.map(device => `
-    <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex items-center justify-between hover:border-neutral-700 transition-all duration-300 mb-2">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center">
-          <i data-lucide="${deviceIcons[device.type] || 'device'}" style="width:18px;height:18px;" stroke-width="1.5" class="text-neutral-300"></i>
-        </div>
-        <div>
-          <p class="text-sm font-medium text-neutral-100">${device.name || deviceLabels[device.type]}</p>
-          <p class="text-xs text-neutral-500">${device.id}</p>
-        </div>
+    <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center">
+        <i data-lucide="${deviceIcons[device.type] || 'device'}" style="width:18px;height:18px;" stroke-width="1.5" class="text-neutral-300"></i>
       </div>
-      <button onclick="disconnectDevice('${device.id}')" class="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-red-900/20 text-red-400 hover:text-red-300 text-xs font-medium transition-colors">
-        Disconnect
-      </button>
+      <div>
+        <p class="text-sm font-medium text-neutral-100">${device.name || deviceLabels[device.type]}</p>
+        <p class="text-xs text-neutral-500">${device.id}</p>
+      </div>
     </div>
   `).join('');
   
-  console.log('Device list updated with ' + devices.length + ' devices');
   if (window.lucide) lucide.createIcons();
-}
-
-function disconnectDevice(deviceId) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
-      type: 'disconnect_device',
-      deviceId: deviceId
-    }));
-  }
-  delete connectedDevices[deviceId];
-  updateDeviceList();
 }

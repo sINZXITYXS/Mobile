@@ -19,6 +19,37 @@
     style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"
     id="page-body"
   >
+    <!-- Pairing Code Input (shown before app loads) -->
+    <div id="pairing-overlay" class="fixed inset-0 bg-neutral-950 z-50 flex items-center justify-center p-4">
+      <div class="max-w-sm w-full text-center">
+        <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-neutral-100 to-neutral-400 flex items-center justify-center mx-auto mb-6">
+          <span class="text-2xl font-bold text-neutral-900">S</span>
+        </div>
+        
+        <h1 class="text-2xl font-bold text-neutral-100 mb-2">Syncify</h1>
+        <p class="text-neutral-300 text-sm font-medium mb-6">Enter Pairing Code</p>
+        
+        <div class="mb-6">
+          <input
+            id="pairing-code-input"
+            type="text"
+            placeholder="000000"
+            maxlength="6"
+            class="w-full px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-lg text-center text-xl font-bold tracking-widest text-neutral-100 placeholder-neutral-600 focus:outline-none focus:border-neutral-700"
+            onkeyup="checkPairingCode()"
+          />
+          <p id="pairing-status" class="text-xs text-neutral-500 mt-2">Enter 6-digit code</p>
+        </div>
+        
+        <button
+          onclick="submitPairingCode()"
+          class="w-full px-6 py-3 bg-neutral-100 hover:bg-white text-neutral-900 text-sm font-bold rounded-lg transition-colors"
+        >
+          Connect
+        </button>
+      </div>
+    </div>
+
     <!-- Install Popup for Browser (before PWA) -->
     <div id="install-popup" class="hidden fixed inset-0 bg-black z-50 flex items-center justify-center p-4">
       <div class="bg-neutral-900 rounded-2xl border border-neutral-800 p-8 max-w-sm w-full text-center">
